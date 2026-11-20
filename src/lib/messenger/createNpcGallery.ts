@@ -14,6 +14,7 @@ import {
 	type WebGLRenderer
 } from 'three';
 import { loadDracoGeometry } from './loadGeometry';
+import { loadDracoGeometryWithRig } from './skinGeometry';
 import { introTexturePaths, npcGalleryEntries } from './introAssets';
 import { initKtx2Loader } from './loadTextures';
 import { createMessengerMaterials } from './materials';
@@ -79,12 +80,15 @@ export async function createNpcGalleryGroup(renderer: WebGLRenderer): Promise<Np
 	gallery.name = 'NpcGallery';
 
 	for (const [index, entry] of npcGalleryEntries.entries()) {
-		const model = await loadDracoGeometry(entry.model);
+		let model: BufferGeometry | null = null;
 
 		try {
+			// The rig loader keeps skinIndex/skinWeight and the bone hierarchy that
+			// the stock loader drops; without it every NPC renders in bind pose.
+			model = await loadDracoGeometryWithRig(entry.model);
 			const [bones, idle] = await Promise.all([
-				loadDracoGeometry(entry.bones),
-				loadDracoGeometry(entry.idle)
+				loadDracoGeometryWithRig(entry.bones),
+				loadDracoGeometryWithRig(entry.idle)
 			]);
 
 			const mesh = createSkin(model, bones, npcMaterial);
@@ -102,6 +106,7 @@ export async function createNpcGalleryGroup(renderer: WebGLRenderer): Promise<Np
 			gallery.add(mesh);
 		} catch (error) {
 			console.warn(`NPC "${entry.name}" skin rig unavailable, using static mesh.`, error);
+			model ??= await loadDracoGeometry(entry.model);
 			const mesh = new Mesh(model, npcMaterial);
 			mesh.name = entry.name;
 			model.computeVertexNormals();

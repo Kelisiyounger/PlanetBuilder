@@ -11,7 +11,10 @@
 	import type { AnimationMixer, BatchedMesh, ShaderMaterial } from 'three';
 	import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 	import type { SceneMode } from './introAssets';
+	import { i18n } from '$lib/i18n/i18n.svelte';
+	import type { MessageKey } from '$lib/i18n/messages';
 	import { setMessengerLight, updateMessengerMaterials, type MessengerMaterialSet } from './materials';
+	import type { WalkController } from './walkController';
 	import type { MessengerComposer } from './postProcessing';
 	import { createSceneDepthTarget, resizeSceneDepthTarget } from './sceneDepthPass';
 	import { setGameplayWaterDepth, updateGameplayWaterMaterial } from './gameplayWater';
@@ -24,12 +27,29 @@
 	> = {
 		intro: { background: '#dfe8ec', camera: [0, 6, 20], minDist: 8, maxDist: 40, autoRotate: true },
 		gameplay: { background: '#b8c9cf', camera: [0, 7, 22], minDist: 8, maxDist: 40, autoRotate: true },
-		npcs: { background: '#151a22', camera: [0, 4.5, 11], minDist: 5, maxDist: 22, autoRotate: false }
+		npcs: { background: '#151a22', camera: [0, 4.5, 11], minDist: 5, maxDist: 22, autoRotate: false },
+		// camera/minDist/maxDist are inert here: the pointer-lock walk camera
+		// drives the transform itself. autoRotate must stay false, or the planet
+		// would spin out from under the character.
+		walk: { background: '#dfe8ec', camera: [0, 3, 9], minDist: 2, maxDist: 14, autoRotate: false }
+	};
+
+	// One key per mode rather than interpolating `mode` into a sentence: English and
+	// Chinese need different spacing around the mode name, and this keeps the raw
+	// internal id ("npcs") out of user-visible text.
+	const sceneLoadingKeys: Record<SceneMode, MessageKey> = {
+		intro: 'scene.loading.intro',
+		gameplay: 'scene.loading.gameplay',
+		npcs: 'scene.loading.npcs',
+		walk: 'scene.loading.walk'
 	};
 
 	let { mode = 'intro' }: { mode?: SceneMode } = $props();
 
 	let status = $state<'loading' | 'ready' | 'error'>('loading');
+	// Pointer lock has no visual affordance of its own, so walk mode shows a hint
+	// until the user clicks.
+	let pointerLocked = $state(false);
 
 	function mountWebGL(host: HTMLDivElement) {
 		const preset = scenePresets[mode];
@@ -50,6 +70,10 @@
 		controls.minDistance = preset.minDist;
 		controls.maxDistance = preset.maxDist;
 		controls.target.set(0, mode === 'npcs' ? 1.2 : 0, 0);
+		// Walk mode drives the camera itself. OrbitControls early-returns from
+		// every DOM handler while disabled, so it stays constructed and dispose()
+		// at teardown still cleans up its listeners.
+		controls.enabled = mode !== 'walk';
 
 		scene.add(new AmbientLight(0xffffff, mode === 'npcs' ? 0.45 : mode === 'gameplay' ? 0.78 : 0.62));
 		const sun = new DirectionalLight(0xfff1dc, mode === 'npcs' ? 1.8 : 1.4);
@@ -70,6 +94,8 @@
 			gameplayWaterMaterial: null as ShaderMaterial | null,
 			gameplayWater: null as BatchedMesh | null,
 			npcMixers: [] as AnimationMixer[],
+			walkController: null as WalkController | null,
+			walkDispose: null as (() => void) | null,
 			autoRotate: preset.autoRotate,
 			frame: 0,
 			lastFrame: performance.now()
@@ -136,6 +162,32 @@
 					runtime.npcMixers = bundle.mixers;
 					bundle.npcMaterial.uniforms.uLightPosition.value.copy(sun.position);
 					scene.add(bundle.group);
+				} else if (mode === 'walk') {
+					const { createWalkSceneGroup } = await import('./createWalkScene');
+					const bundle = await createWalkSceneGroup(renderer, {
+						onLockChange: (locked) => (pointerLocked = locked)
+					});
+					if (token !== loadToken) {
+						bundle.dispose();
+						return;
+					}
+					runtime.sceneGroup = bundle.group;
+					runtime.materials = bundle.materials;
+					runtime.walkController = bundle.controller;
+					runtime.walkDispose = bundle.dispose;
+					setMessengerLight(runtime.materials, sun.position);
+					scene.add(bundle.group);
+					// The character is a sibling of the group, not a child: the group
+					// carries fitGroup's planet scale.
+					scene.add(bundle.character);
+					if (import.meta.env.DEV) {
+						(window as unknown as Record<string, unknown>).__messengerWalk = {
+							...bundle,
+							camera,
+							scene,
+							renderer
+						};
+					}
 				} else {
 					const { createIntroSceneGroup } = await import('./createIntroScene');
 					const bundle = await createIntroSceneGroup(renderer);
@@ -161,7 +213,10 @@
 			const delta = (now - runtime.lastFrame) / 1000;
 			runtime.lastFrame = now;
 
-			controls.update();
+			// Clamped only on the character path; the NPC mixers keep the raw delta.
+			const step = Math.min(delta, 0.05);
+			if (runtime.walkController) runtime.walkController.update(step, camera);
+			else controls.update();
 			const elapsed = (now - startedAt) / 1000;
 			if (runtime.autoRotate && runtime.sceneGroup) runtime.sceneGroup.rotation.y += 0.0012;
 			if (runtime.materials) updateMessengerMaterials(runtime.materials, elapsed);
@@ -204,6 +259,9 @@
 			resizeObserver.disconnect();
 			runtime.composer?.dispose();
 			sceneDepthTarget.dispose();
+			// Before the canvas is detached: releases pointer lock and removes the
+			// document/window input listeners.
+			runtime.walkDispose?.();
 			controls.dispose();
 			renderer.dispose();
 			scene.clear();
@@ -216,12 +274,14 @@
 	id="webgl"
 	{@attach mountWebGL}
 	class="messenger-canvas"
-	aria-label="Messenger scene preview"
+	aria-label={i18n.t('scene.label')}
 >
 	{#if status === 'loading'}
-		<p class="status">Loading {mode} scene…</p>
+		<p class="status">{i18n.t(sceneLoadingKeys[mode])}</p>
 	{:else if status === 'error'}
-		<p class="status error">Failed to load messenger assets.</p>
+		<p class="status error">{i18n.t('scene.error')}</p>
+	{:else if mode === 'walk' && !pointerLocked}
+		<p class="status hint">{i18n.t('walk.hint')}</p>
 	{/if}
 </div>
 
@@ -258,5 +318,11 @@
 
 	.status.error {
 		color: #8a2f2f;
+	}
+
+	.status.hint {
+		color: #2f5f78;
+		background: rgb(255 255 255 / 0.92);
+		font-size: 0.82rem;
 	}
 </style>

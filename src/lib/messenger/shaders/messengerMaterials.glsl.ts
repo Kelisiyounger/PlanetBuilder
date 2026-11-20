@@ -6,10 +6,38 @@ varying vec3 vLightDirection;
 
 uniform vec3 uLightPosition;
 
+// Supplies boneTexture/bindMatrix and getBoneMatrix(); a no-op unless three
+// defined USE_SKINNING, which it does automatically for any material on a
+// SkinnedMesh. Harmless for the planet and trees.
+#include <skinning_pars_vertex>
+
 void main() {
 	vUv = uv;
-	vNormal = normalize(normalMatrix * normal);
-	vec4 worldPosition = modelMatrix * vec4(position, 1.0);
+
+	vec3 transformed = vec3( position );
+	vec3 objectNormal = vec3( normal );
+
+	#ifdef USE_SKINNING
+		mat4 boneMatX = getBoneMatrix( skinIndex.x );
+		mat4 boneMatY = getBoneMatrix( skinIndex.y );
+		mat4 boneMatZ = getBoneMatrix( skinIndex.z );
+		mat4 boneMatW = getBoneMatrix( skinIndex.w );
+		#include <skinnormal_vertex>
+		#include <skinning_vertex>
+	#endif
+
+	// The fragment shader dots the normal against a WORLD-space light direction,
+	// so a world-space normal is the consistent choice. The skinned character
+	// opts in (its lit side would otherwise swim with the orbiting camera); the
+	// planet keeps its historical view-space normal so nothing about the
+	// existing scenes changes.
+	#ifdef MESSENGER_WORLD_NORMAL
+		vNormal = normalize( mat3( modelMatrix ) * objectNormal );
+	#else
+		vNormal = normalize( normalMatrix * objectNormal );
+	#endif
+
+	vec4 worldPosition = modelMatrix * vec4( transformed, 1.0 );
 	vWorldPosition = worldPosition.xyz;
 	vLightDirection = uLightPosition - worldPosition.xyz;
 	gl_Position = projectionMatrix * viewMatrix * worldPosition;

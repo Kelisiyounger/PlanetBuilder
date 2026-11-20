@@ -85,6 +85,27 @@ export function updateMessengerMaterials(materials: MessengerMaterialSet, elapse
 	materials.clouds.uniforms.uTime.value = elapsed;
 }
 
+/**
+ * A private copy of the atlas material for the skinned character.
+ *
+ * `materials.atlas` is shared with the planet and the trees, so it must not be
+ * mutated. The clone additionally enables MESSENGER_WORLD_NORMAL: the character
+ * is viewed from an orbiting camera, where the stock view-space normal dotted
+ * against a world-space light direction makes the lit side swim.
+ */
+export function createCharacterMaterial(materials: MessengerMaterialSet): ShaderMaterial {
+	const material = materials.atlas.clone();
+	material.defines = { ...material.defines, MESSENGER_WORLD_NORMAL: '' };
+
+	// cloneUniforms() deep-copies, which would give us a second Vector3 the light
+	// updates never reach and a duplicate GPU texture. Point both back at the
+	// originals so setMessengerLight keeps working on this material too.
+	material.uniforms.uLightPosition.value = materials.lightPosition;
+	material.uniforms.tAtlas.value = materials.atlas.uniforms.tAtlas.value;
+
+	return material;
+}
+
 export function setMessengerLight(materials: MessengerMaterialSet, lightPosition: Vector3): void {
 	materials.lightPosition.copy(lightPosition);
 	materials.atlas.uniforms.uLightPosition.value.copy(lightPosition);

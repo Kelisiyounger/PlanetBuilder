@@ -31,7 +31,22 @@ export const introTexturePaths = {
 	treeLeaves: '/messenger/images/tree-leaves.ktx2'
 } as const;
 
-export type SceneMode = 'intro' | 'gameplay' | 'npcs';
+export type SceneMode = 'intro' | 'gameplay' | 'npcs' | 'walk';
+
+/**
+ * The third-person avatar. `office-worker` is the only NPC in the bundle that
+ * ships a walk cycle -- everything else has idle only.
+ *
+ * These must be loaded with `loadDracoGeometryWithRig`, not `loadDracoGeometry`:
+ * the stock loader drops `skinIndex`/`skinWeight`, the bone rig, and the
+ * animation frame metadata.
+ */
+export const walkCharacterPaths = {
+	model: '/messenger/geometries/npcs/present/office-worker/office-worker.drc',
+	bones: '/messenger/geometries/npcs/present/office-worker/office-worker-bones.drc',
+	idle: '/messenger/geometries/npcs/present/office-worker/office-worker-idle.drc',
+	walk: '/messenger/geometries/npcs/present/office-worker/office-worker-walk.drc'
+} as const;
 
 export type NpcGalleryEntry = {
 	name: string;
