@@ -1,7 +1,7 @@
 # Messenger 逆向对照与重构计划
 
 > 状态：草案  
-> 日期：2026-11-20  
+> 日期：2026-11-20（2026-11-25 更新线上采集记录）  
 > 适用仓库：PlanetBuilder（package name: `messenger-copy`）  
 > 参考对象：<https://messenger.abeto.co/>
 
@@ -15,6 +15,33 @@
 - 当前仓库是**高质量的技术切片**：渲染/资产层已经打通（Draco、KTX2、骨骼重建、材质移植），但缺少运行时骨架（场景生命周期、输入、物理、UI）和游戏系统。
 - **不建议整体重写**。建议"保留渲染与资产层，重写运行时外壳，再按优先级补系统"。
 - 推荐路线为方案 B，预估 3–5 周（单人 + AI 辅助，15–25 人日），分 P0–P6 七个阶段，P7（多人）可选。
+
+### 0.1 2026-11-25 线上更新记录
+
+- 入口 bundle 已更新：`webgl-C4v7tvuW.js` → `webgl-CS4l6lxD.js`，`App3D-BLRWK1h9.js` → `App3D-DwM1eiaC.js`。旧 bundle 仍保留在镜像中，作为 2026-06 快照。
+- 新增资产（已抓取到 `reference/`）：
+  - `geometries/planets/present/hitmesh_0..4.drc`（碰撞代理网格）
+  - `geometries/planets/present/full-lod-{1,2,3}_{0..9}.drc`（地形 LOD）
+  - `geometries/planets/present/grass.drc`、`butterflies.drc`
+  - `geometries/avatar/**`（玩家角色、动画、默认装扮与全部配件）
+  - `geometries/emojis/1..10.drc`
+- `avatar-walk.drc` 在线上已不存在，玩家的移动循环使用 `avatar-run.drc`。
+- 默认装扮：`accessories/base` + `hair1` + `top9` + `bottom6` + `shoes2`。
+- 抓取清单：`reference/messenger.abeto.co/avatar-capture.json`。
+
+### 0.2 2026-11-25 实施记录
+
+- P0 完成：`pnpm setup:assets` 修复 `static/messenger` junction，四个模式可运行。
+- 主语言切换为简体中文，隐藏语言切换器（i18n 结构保留）。
+- 抓取并接入线上 avatar：`avatar-run` 作为移动循环，默认装扮 `base + hair1 + top9 + bottom6 + shoes2` 合并为单个蒙皮网格。
+- 修复"金属质感"：保留 `.drc` 自带的硬边法线（`ensureNormals`），atlas 标记 `SRGBColorSpace`；所有材质的光照法线改为世界空间（此前 view-space normal 与 world-space 光源混用，光照会随相机漂移）。
+- 新增 `src/lib/messenger/outline.ts`：移植原站 `outlines` pass（face id + depth + normal 五采样、断线轮廓、距离衰减），已接入 intro / gameplay / npcs / walk。
+- 描边选择性：info pass 写入原站的 `outlineContribution` 遮罩（`sinenoise1(localPos * 4 + surfaceId * ...)` + `step(0.47, ...)`），只绘制部分线段；阴影过渡收窄到 `smoothstep(0.2, 0.4)`。
+- 描边外观：灰色 `#555b60`、粗细 3、时间驱动的轻微抖动；info pass 只渲染不透明物体；地形用负 alpha 标记，关闭逐面 ID 项，只保留轮廓深度，避免每个面都变成点状划痕。
+- 地形属性：改用 `loadDracoGeometryWithRig` + `splitBatchedGeometry` 保留 `surfaceId` / `elementId`，再按 chunk 合并，mesh 数从 667 降到 23。
+- 比例与操作：walk 星球拟合尺寸从 14 调到 40，角色不再像巨人；修正 `frameRight = forward × up`，横向鼠标不再反向。
+- 描边分通道：info alpha 改为带符号值（`|a|` 为覆盖率，`sign(a)` 为内部线遮罩），外轮廓保持连续、内部 face-id 线保持断续；透明物体不参与 info pass。
+- 待办：把 LUT 合并进 outline shader；present 星球可行走化；任务与交互。
 
 ---
 

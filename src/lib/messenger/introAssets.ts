@@ -48,6 +48,30 @@ export const walkCharacterPaths = {
 	walk: '/messenger/geometries/npcs/present/office-worker/office-worker-walk.drc'
 } as const;
 
+/**
+ * 原站玩家角色（avatar）资源。镜像里默认没有这组文件，抓取后 walk 模式会优先使用；
+ * 缺失时自动回退到 office-worker，所以未抓取时项目仍然可运行。
+ */
+export const avatarPaths = {
+	model: '/messenger/geometries/avatar/avatar.drc',
+	bones: '/messenger/geometries/avatar/avatar-bones.drc',
+	idle: '/messenger/geometries/avatar/avatar-idle.drc',
+	// 2026-11 的线上版本已经没有 avatar-walk 了；玩家的移动循环用 avatar-run。
+	walk: '/messenger/geometries/avatar/avatar-run.drc'
+} as const;
+
+/**
+ * 线上默认装扮。这些配件与 avatar.drc 有相同的属性布局（skinIndex /
+ * skinWeight / position / normal / uv / surfaceId），可以合并成一个蒙皮网格。
+ */
+export const avatarAccessoryPaths = {
+	base: '/messenger/geometries/avatar/accessories/base.drc',
+	hair: '/messenger/geometries/avatar/accessories/hair1.drc',
+	top: '/messenger/geometries/avatar/accessories/top9.drc',
+	bottom: '/messenger/geometries/avatar/accessories/bottom6.drc',
+	shoes: '/messenger/geometries/avatar/accessories/shoes2.drc'
+} as const;
+
 export type NpcGalleryEntry = {
 	name: string;
 	model: string;

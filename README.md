@@ -19,10 +19,22 @@ Unofficial learning workspace that mirrors assets, shaders, and scene structure 
 
 ```sh
 pnpm install
+pnpm setup:assets
 pnpm dev
 ```
 
 Open [http://localhost:5173](http://localhost:5173).
+
+### Windows: `static/messenger`
+
+`static/messenger` is a symlink in git. Windows checks it out with
+`core.symlinks=false`, which turns it into a plain text file, so Vite cannot
+serve `/messenger/*` and every scene fails to load. `pnpm setup:assets`
+creates a junction to `reference/messenger.abeto.co/assets` instead.
+
+```bat
+cmd /c mklink /J "static\messenger" "reference\messenger.abeto.co\assets"
+```
 
 ### Reference tooling
 
@@ -30,6 +42,7 @@ Open [http://localhost:5173](http://localhost:5173).
 pnpm reference:discover   # find asset URLs from bundles
 pnpm reference:download   # fetch missing reference files
 pnpm reference:shaders    # extract GLSL from JS bundles
+pnpm reference:crawl-avatar  # 进入游戏并抓取 avatar / EXR 等未镜像资产
 ```
 
 ## Stack

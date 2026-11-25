@@ -1,3 +1,6 @@
+// 当前阶段以简体中文为唯一主语言；多语言的检测与持久化逻辑保留在 messages.ts，
+// 等游戏本体稳定后再启用切换器。
+//
 // Two Svelte 5 rules shape this file -- both are compile/runtime errors, so
 // please read before editing:
 //
@@ -11,25 +14,13 @@
 //      components -- the `document.documentElement.lang` sync lives in
 //      `src/routes/+layout.svelte`.
 
-import { LOCALE_STORAGE_KEY, messages, pickLocale, type Locale, type MessageKey } from './messages';
+import { LOCALE_STORAGE_KEY, messages, type Locale, type MessageKey } from './messages';
 
-function readStoredLocale(): string | null {
-	if (typeof window === 'undefined') return null;
-	try {
-		return window.localStorage.getItem(LOCALE_STORAGE_KEY);
-	} catch {
-		// Storage can throw when cookies are blocked or in private mode.
-		return null;
-	}
-}
-
-function resolveInitialLocale(): Locale {
-	if (typeof window === 'undefined') return 'en';
-	return pickLocale(readStoredLocale(), window.navigator?.language);
-}
+/** 主语言。将来恢复多语言时，把这里换回 pickLocale(...) 即可。 */
+export const PRIMARY_LOCALE: Locale = 'zh';
 
 // Legal at module scope precisely because it is not exported directly (rule 1).
-let locale = $state<Locale>(resolveInitialLocale());
+let locale = $state<Locale>(PRIMARY_LOCALE);
 
 export const i18n = {
 	get locale(): Locale {
@@ -47,9 +38,8 @@ export const i18n = {
 	},
 
 	/**
-	 * Only an explicit choice is persisted. Auto-detection deliberately is not,
-	 * so a visitor who never touches the switcher keeps following their browser
-	 * language on every visit.
+	 * 保留给未来的语言切换器。当前 UI 不暴露入口，但选择仍会写入 localStorage，
+	 * 方便以后恢复时直接读取。
 	 */
 	setLocale(next: Locale): void {
 		locale = next;

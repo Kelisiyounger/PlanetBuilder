@@ -1,8 +1,11 @@
 export const atlasVertexShader = /* glsl */ `
+attribute float surfaceId;
+
 varying vec2 vUv;
 varying vec3 vNormal;
 varying vec3 vWorldPosition;
 varying vec3 vLightDirection;
+varying float vSurfaceId;
 
 uniform vec3 uLightPosition;
 
@@ -13,6 +16,7 @@ uniform vec3 uLightPosition;
 
 void main() {
 	vUv = uv;
+	vSurfaceId = surfaceId;
 
 	vec3 transformed = vec3( position );
 	vec3 objectNormal = vec3( normal );
@@ -27,15 +31,9 @@ void main() {
 	#endif
 
 	// The fragment shader dots the normal against a WORLD-space light direction,
-	// so a world-space normal is the consistent choice. The skinned character
-	// opts in (its lit side would otherwise swim with the orbiting camera); the
-	// planet keeps its historical view-space normal so nothing about the
-	// existing scenes changes.
-	#ifdef MESSENGER_WORLD_NORMAL
-		vNormal = normalize( mat3( modelMatrix ) * objectNormal );
-	#else
-		vNormal = normalize( normalMatrix * objectNormal );
-	#endif
+	// so the normal must be world-space too. A view-space normal makes the lit
+	// side swim as the camera orbits, which reads as a metallic sheen.
+	vNormal = normalize( mat3( modelMatrix ) * objectNormal );
 
 	vec4 worldPosition = modelMatrix * vec4( transformed, 1.0 );
 	vWorldPosition = worldPosition.xyz;
@@ -54,6 +52,7 @@ varying vec2 vUv;
 varying vec3 vNormal;
 varying vec3 vWorldPosition;
 varying vec3 vLightDirection;
+varying float vSurfaceId;
 
 vec3 rgb2hsv(vec3 c) {
 	vec4 K = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);
@@ -80,7 +79,9 @@ void main() {
 	float shadow = 1.0 - step(0.4, shade);
 
 	vec3 color = mix(baseColor, colorShadow, shadow * 0.85);
-	gl_FragColor = vec4(color, 1.0);
+	// Alpha is a face/surface id for the outline pass, not opacity. Keeping it
+	// small makes the id difference cross the outline threshold at each face.
+	gl_FragColor = vec4(color, vSurfaceId * 0.001);
 }
 `;
 
@@ -92,7 +93,7 @@ varying float vDistance;
 
 void main() {
 	vUv = uv;
-	vNormal = normalize(normalMatrix * normal);
+	vNormal = normalize(mat3(modelMatrix) * normal);
 	vec4 worldPosition = modelMatrix * vec4(position, 1.0);
 	vWorldPosition = worldPosition.xyz;
 	vDistance = length(position);
@@ -142,7 +143,7 @@ void main() {
 	vec3 colorShadow = hsv2rgb(vec3(rgb2hsv(color).xy, rgb2hsv(color).z * 0.5));
 	vec3 lightDir = normalize(uLightPosition - vWorldPosition);
 	float shade = max(dot(normalize(vNormal), lightDir), 0.0);
-	color = mix(colorShadow, color, smoothstep(0.2, 0.55, shade));
+	color = mix(colorShadow, color, smoothstep(0.2, 0.4, shade));
 
 	color += smoothstep(0.3, 0.0, step(0.2, vDistance - noise * 1.5)) * vec3(0.2, 0.8, 1.0) * 0.04;
 	gl_FragColor = vec4(color, 0.92);
@@ -165,7 +166,7 @@ void main() {
 
 	vec4 worldPosition = modelMatrix * vec4(pos, 1.0);
 	vWorldPosition = worldPosition.xyz;
-	vNormal = normalize(normalMatrix * normal);
+	vNormal = normalize(mat3(modelMatrix) * normal);
 	gl_Position = projectionMatrix * viewMatrix * worldPosition;
 }
 `;

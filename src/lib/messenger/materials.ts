@@ -89,13 +89,12 @@ export function updateMessengerMaterials(materials: MessengerMaterialSet, elapse
  * A private copy of the atlas material for the skinned character.
  *
  * `materials.atlas` is shared with the planet and the trees, so it must not be
- * mutated. The clone additionally enables MESSENGER_WORLD_NORMAL: the character
- * is viewed from an orbiting camera, where the stock view-space normal dotted
- * against a world-space light direction makes the lit side swim.
+ * mutated. The atlas shader now uses world-space normals for everything, so no
+ * extra define is needed; the character still gets its own material so its
+ * uniforms can diverge later.
  */
 export function createCharacterMaterial(materials: MessengerMaterialSet): ShaderMaterial {
 	const material = materials.atlas.clone();
-	material.defines = { ...material.defines, MESSENGER_WORLD_NORMAL: '' };
 
 	// cloneUniforms() deep-copies, which would give us a second Vector3 the light
 	// updates never reach and a duplicate GPU texture. Point both back at the

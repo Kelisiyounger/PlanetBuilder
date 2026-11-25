@@ -233,7 +233,10 @@ export function createWalkController(options: WalkControllerOptions): WalkContro
 		transport.setFromUnitVectors(previousUp, state.up);
 		frameForward.applyQuaternion(transport);
 		tangentProjection(frameForward, frameForward, state.up);
-		frameRight.crossVectors(state.up, frameForward);
+		// Screen-right for a camera looking along `frameForward` is
+		// forward x up. Using up x forward gave the mirrored basis here, which
+		// is why horizontal mouse look felt inverted.
+		frameRight.crossVectors(frameForward, state.up);
 
 		// 2. Mouse look.
 		state.camYaw += input.lookX * YAW_SENSITIVITY;

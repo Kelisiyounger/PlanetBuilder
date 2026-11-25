@@ -1,5 +1,6 @@
-import { Group, Mesh, TextureLoader, Vector3 } from 'three';
+import { Group, Mesh, SRGBColorSpace, TextureLoader, Vector3 } from 'three';
 import type { Texture, WebGLRenderer } from 'three';
+import { ensureNormals } from './geometryAttributes';
 import { loadDracoGeometry } from './loadGeometry';
 import { introGeometryPaths, introTexturePaths } from './introAssets';
 import { initKtx2Loader, loadKtx2Texture } from './loadTextures';
@@ -35,6 +36,11 @@ export type IntroSceneBundle = {
 	materials: ReturnType<typeof createMessengerMaterials>;
 };
 
+export type IntroSceneOptions = {
+	/** Diameter the planet is fitted to. Walk mode uses a larger world. */
+	targetSize?: number;
+};
+
 export async function loadIntroTextures(renderer: WebGLRenderer): Promise<{
 	atlas: Texture;
 	noise: Texture;
@@ -44,10 +50,16 @@ export async function loadIntroTextures(renderer: WebGLRenderer): Promise<{
 		textureLoader.loadAsync(introTexturePaths.atlas),
 		loadKtx2Texture(introTexturePaths.cloudNoise)
 	]);
+	// The atlas is a colour palette; without this the shader samples sRGB bytes
+	// as linear and the renderer encodes them again, washing the palette out.
+	atlas.colorSpace = SRGBColorSpace;
 	return { atlas, noise };
 }
 
-export async function createIntroSceneGroup(renderer: WebGLRenderer): Promise<IntroSceneBundle> {
+export async function createIntroSceneGroup(
+	renderer: WebGLRenderer,
+	options: IntroSceneOptions = {}
+): Promise<IntroSceneBundle> {
 	const textures = await loadIntroTextures(renderer);
 	const materials = createMessengerMaterials(textures.atlas, textures.noise);
 
@@ -59,7 +71,7 @@ export async function createIntroSceneGroup(renderer: WebGLRenderer): Promise<In
 	]);
 
 	for (const geometry of [planetGeo, waterGeo, treesGeo, cloudsGeo]) {
-		geometry.computeVertexNormals();
+		ensureNormals(geometry);
 	}
 
 	const group = new Group();
@@ -78,7 +90,7 @@ export async function createIntroSceneGroup(renderer: WebGLRenderer): Promise<In
 	clouds.name = 'Clouds';
 
 	group.add(planet, water, trees, clouds);
-	fitGroup(group);
+	fitGroup(group, options.targetSize ?? 14);
 
 	return { group, materials };
 }

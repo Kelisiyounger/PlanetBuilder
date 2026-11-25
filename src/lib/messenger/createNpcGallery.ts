@@ -6,6 +6,7 @@ import {
 	Group,
 	Mesh,
 	MeshStandardMaterial,
+	SRGBColorSpace,
 	TextureLoader,
 	Vector3,
 	type BufferGeometry,
@@ -13,6 +14,7 @@ import {
 	type SkinnedMesh,
 	type WebGLRenderer
 } from 'three';
+import { ensureNormals } from './geometryAttributes';
 import { loadDracoGeometry } from './loadGeometry';
 import { loadDracoGeometryWithRig } from './skinGeometry';
 import { introTexturePaths, npcGalleryEntries } from './introAssets';
@@ -55,6 +57,7 @@ export async function createNpcGalleryGroup(renderer: WebGLRenderer): Promise<Np
 	initKtx2Loader(renderer);
 	const textureLoader = new TextureLoader();
 	const atlas = await textureLoader.loadAsync(introTexturePaths.atlas);
+	atlas.colorSpace = SRGBColorSpace;
 	const materials = createMessengerMaterials(atlas, atlas);
 	const npcMaterial = materials.atlas;
 
@@ -109,7 +112,7 @@ export async function createNpcGalleryGroup(renderer: WebGLRenderer): Promise<Np
 			model ??= await loadDracoGeometry(entry.model);
 			const mesh = new Mesh(model, npcMaterial);
 			mesh.name = entry.name;
-			model.computeVertexNormals();
+			ensureNormals(model);
 			placeNpcMesh(mesh, model, index, npcGalleryEntries.length);
 			npcMeshes.push(mesh);
 			gallery.add(mesh);

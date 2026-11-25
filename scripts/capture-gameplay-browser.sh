@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT="/home/arafays/projects/messenger-copy"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OUT="$ROOT/reference/messenger.abeto.co/network-urls-gameplay.txt"
 AB="mise exec aqua:vercel-labs/agent-browser -- agent-browser"
 

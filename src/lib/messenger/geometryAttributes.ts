@@ -19,3 +19,13 @@ export function ensureTerrainAttributes(geometry: BufferGeometry): void {
 	ensureFloatAttribute(geometry, 'surfaceId', 0);
 	ensureFloatAttribute(geometry, 'elementId', 0);
 }
+
+/**
+ * The reference `.drc` files ship authored normals, split at hard edges. Calling
+ * `computeVertexNormals()` unconditionally smooths those edges across the whole
+ * mesh, which turns the flat illustrated shading into a glossy/plastic look.
+ * Only fill normals in when the asset genuinely lacks them.
+ */
+export function ensureNormals(geometry: BufferGeometry): void {
+	if (!geometry.getAttribute('normal')) geometry.computeVertexNormals();
+}

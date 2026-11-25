@@ -2,6 +2,7 @@ import {
 	Box3,
 	Group,
 	Mesh,
+	SRGBColorSpace,
 	TextureLoader,
 	Vector3,
 	type BatchedMesh,
@@ -9,6 +10,7 @@ import {
 	type Texture,
 	type WebGLRenderer
 } from 'three';
+import { ensureNormals } from './geometryAttributes';
 import { createGameplayTerrainGroup, createTreeLeavesGroup } from './gameplayTerrain';
 import { createGameplayWaterMesh, setGameplayWaterLight } from './gameplayWater';
 import { gameplayGeometryPaths, introTexturePaths } from './introAssets';
@@ -70,6 +72,8 @@ export async function createGameplaySceneGroup(renderer: WebGLRenderer): Promise
 		loadKtx2Texture(introTexturePaths.treeLeaves)
 	]);
 
+	atlas.colorSpace = SRGBColorSpace;
+
 	const lightPosition = new Vector3(10, 16, 6);
 	const terrainMaterial = createTerrainMaterial(atlas, noiseTerrain, noiseSimplex, lightPosition);
 	const treeLeavesMaterial = createTreeLeavesMaterial(treeLeavesTexture, lightPosition);
@@ -101,7 +105,7 @@ export async function createGameplaySceneGroup(renderer: WebGLRenderer): Promise
 	]);
 
 	for (const geometry of [cables1Geo, cables2Geo, waterfallGeo, splashGeo, inletGeo, smokeGeo, beachGeo]) {
-		geometry.computeVertexNormals();
+		ensureNormals(geometry);
 	}
 
 	const cableMaterial = createPropMaterial(propColors.cables, cloudNoise512);

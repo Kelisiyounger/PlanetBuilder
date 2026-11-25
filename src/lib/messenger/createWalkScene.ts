@@ -26,15 +26,20 @@ export type WalkSceneOptions = {
  * The walker lives on the *intro* planet, so this reuses `createIntroSceneGroup`
  * rather than duplicating the planet, water, trees and clouds.
  *
+ * Walk mode fits the planet to a much larger diameter than the orbit preview:
+ * at the preview's 14 units the 1.6-unit avatar looked like a giant. The 40-unit
+ * world keeps the same controller/camera tuning while restoring a believable
+ * person-to-planet ratio.
+ *
  * The character is added to the scene directly, NOT to the returned group: that
- * group carries `fitGroup`'s 0.1718 scale, which must not leak into the
- * character's world transform.
+ * group carries `fitGroup`'s scale, which must not leak into the character's
+ * world transform.
  */
 export async function createWalkSceneGroup(
 	renderer: WebGLRenderer,
 	options: WalkSceneOptions = {}
 ): Promise<WalkSceneBundle> {
-	const intro = await createIntroSceneGroup(renderer);
+	const intro = await createIntroSceneGroup(renderer, { targetSize: 40 });
 
 	intro.group.updateMatrixWorld(true);
 	const planet = intro.group.getObjectByName('Planet');

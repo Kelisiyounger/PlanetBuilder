@@ -12,10 +12,12 @@
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
 		"test:unit": "vitest",
 		"test": "npm run test:unit -- --run",
+		"setup:assets": "node scripts/setup-assets.mjs",
 		"reference:download": "bash scripts/download-reference.sh",
 		"reference:discover": "python3 scripts/discover-assets.py",
 		"reference:shaders": "python3 scripts/extract-shaders.py",
-		"reference:capture": "bash scripts/capture-gameplay-browser.sh"
+		"reference:capture": "bash scripts/capture-gameplay-browser.sh",
+		"reference:crawl-avatar": "node scripts/crawl-avatar-assets.mjs"
 	},
 	"devDependencies": {
 		"@sveltejs/adapter-auto": "next",

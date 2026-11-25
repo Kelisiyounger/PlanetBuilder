@@ -2,7 +2,7 @@
 set -euo pipefail
 
 BASE_URL="https://messenger.abeto.co"
-ROOT="/home/arafays/projects/messenger-copy/reference/messenger.abeto.co"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/reference/messenger.abeto.co"
 URLS_FILE="$ROOT/network-urls.txt"
 MANIFEST="$ROOT/manifest.txt"
 PARALLEL="${PARALLEL:-8}"
@@ -73,11 +73,12 @@ done
 # Extract shader-like strings from bundles
 SHADERS_DIR="$ROOT/shaders"
 mkdir -p "$SHADERS_DIR"
-python3 - <<'PY'
+ROOT="$ROOT" python3 - <<'PY'
+import os
 import re
 from pathlib import Path
 
-root = Path("/home/arafays/projects/messenger-copy/reference/messenger.abeto.co")
+root = Path(os.environ["ROOT"])
 out = root / "shaders"
 out.mkdir(parents=True, exist_ok=True)
 

@@ -15,7 +15,7 @@
 	import type { MessageKey } from '$lib/i18n/messages';
 	import { setMessengerLight, updateMessengerMaterials, type MessengerMaterialSet } from './materials';
 	import type { WalkController } from './walkController';
-	import type { MessengerComposer } from './postProcessing';
+	import { createOutlineComposer, type OutlineComposer } from './outline';
 	import { createSceneDepthTarget, resizeSceneDepthTarget } from './sceneDepthPass';
 	import { setGameplayWaterDepth, updateGameplayWaterMaterial } from './gameplayWater';
 	import { setTerrainLight } from './terrainMaterial';
@@ -85,7 +85,6 @@
 		scene.add(sun);
 
 		const runtime = {
-			composer: null as MessengerComposer | null,
 			sceneGroup: null as Group | null,
 			materials: null as MessengerMaterialSet | null,
 			terrainMaterial: null as ShaderMaterial | null,
@@ -93,6 +92,7 @@
 			propMaterials: [] as ShaderMaterial[],
 			gameplayWaterMaterial: null as ShaderMaterial | null,
 			gameplayWater: null as BatchedMesh | null,
+			outline: null as OutlineComposer | null,
 			npcMixers: [] as AnimationMixer[],
 			walkController: null as WalkController | null,
 			walkDispose: null as (() => void) | null,
@@ -100,6 +100,10 @@
 			frame: 0,
 			lastFrame: performance.now()
 		};
+
+		// The reference-style broken outline pass applies to every mode. Gameplay
+		// additionally runs its water depth pass before this composer renders.
+		runtime.outline = createOutlineComposer(renderer, scene, camera);
 
 		let sceneDepthTarget = createSceneDepthTarget(host.clientWidth, host.clientHeight);
 		const startedAt = performance.now();
@@ -110,8 +114,8 @@
 			camera.aspect = clientWidth / Math.max(clientHeight, 1);
 			camera.updateProjectionMatrix();
 			renderer.setSize(clientWidth, clientHeight);
+			runtime.outline?.resize();
 			resizeSceneDepthTarget(sceneDepthTarget, clientWidth, clientHeight);
-			runtime.composer?.resize(clientWidth, clientHeight);
 			if (runtime.gameplayWaterMaterial) {
 				setGameplayWaterDepth(
 					runtime.gameplayWaterMaterial,
@@ -131,10 +135,7 @@
 			status = 'loading';
 			try {
 				if (mode === 'gameplay') {
-					const [{ createGameplaySceneGroup }, { createMessengerComposer }] = await Promise.all([
-						import('./createGameplayScene'),
-						import('./postProcessing')
-					]);
+					const { createGameplaySceneGroup } = await import('./createGameplayScene');
 					const bundle = await createGameplaySceneGroup(renderer);
 					if (token !== loadToken) return;
 					runtime.sceneGroup = bundle.group;
@@ -152,8 +153,6 @@
 						host.clientHeight
 					);
 					scene.add(bundle.group);
-					runtime.composer = createMessengerComposer(renderer, scene, camera, bundle.lut);
-					runtime.composer.resize(host.clientWidth, host.clientHeight);
 				} else if (mode === 'npcs') {
 					const { createNpcGalleryGroup } = await import('./createNpcGallery');
 					const bundle = await createNpcGalleryGroup(renderer);
@@ -197,6 +196,16 @@
 					setMessengerLight(runtime.materials, sun.position);
 					scene.add(bundle.group);
 				}
+				if (import.meta.env.DEV) {
+					// 通用调试入口：控制台可直接改灯光/材质/相机，后续 dev GUI 也接这里。
+					(window as unknown as Record<string, unknown>).__messenger = {
+						mode,
+						scene,
+						camera,
+						renderer,
+						runtime
+					};
+				}
 				status = 'ready';
 			} catch (error) {
 				if (token !== loadToken) return;
@@ -231,7 +240,9 @@
 				mixer.update(delta);
 			}
 
-			if (runtime.composer && runtime.gameplayWater && runtime.gameplayWaterMaterial) {
+			if (runtime.gameplayWater && runtime.gameplayWaterMaterial) {
+				// The water shader needs the opaque scene's depth before the
+				// outline composer draws the final image.
 				runtime.gameplayWater.visible = false;
 				renderer.setRenderTarget(sceneDepthTarget);
 				renderer.clear();
@@ -244,12 +255,10 @@
 					renderer.domElement.width,
 					renderer.domElement.height
 				);
-				runtime.composer.render();
-			} else if (runtime.composer) {
-				runtime.composer.render();
-			} else {
-				renderer.render(scene, camera);
 			}
+
+			if (runtime.outline) runtime.outline.render();
+			else renderer.render(scene, camera);
 		};
 		tick();
 
@@ -257,7 +266,7 @@
 			loadToken += 1;
 			cancelAnimationFrame(runtime.frame);
 			resizeObserver.disconnect();
-			runtime.composer?.dispose();
+			runtime.outline?.dispose();
 			sceneDepthTarget.dispose();
 			// Before the canvas is detached: releases pointer lock and removes the
 			// document/window input listeners.

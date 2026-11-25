@@ -6,7 +6,7 @@ varying vec2 vHighPrecisionZW;
 
 void main() {
 	vUv = uv;
-	vNormal = normalize(normalMatrix * normal);
+	vNormal = normalize(mat3(modelMatrix) * normal);
 	vec4 viewPosition = modelViewMatrix * vec4(position, 1.0);
 	vWorldPosition = (modelMatrix * vec4(position, 1.0)).xyz;
 	gl_Position = projectionMatrix * viewPosition;
@@ -57,7 +57,7 @@ void main() {
 	}
 
 	float shade = max(dot(normalize(vNormal), normalize(uLightPosition - vWorldPosition)), 0.0);
-	color *= 0.65 + shade * 0.35;
+	color *= mix(0.65, 1.0, smoothstep(0.2, 0.4, shade));
 
 	gl_FragColor = vec4(color, 0.88);
 }

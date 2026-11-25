@@ -10,7 +10,7 @@ from pathlib import Path
 from urllib.parse import urljoin
 
 BASE = "https://messenger.abeto.co"
-ROOT = Path("/home/arafays/projects/messenger-copy/reference/messenger.abeto.co")
+ROOT = Path(__file__).resolve().parents[1] / "reference" / "messenger.abeto.co"
 ASSETS = ROOT / "assets"
 
 IMAGE_EXT = {".png", ".jpg", ".jpeg", ".webp", ".ktx2", ".icon"}

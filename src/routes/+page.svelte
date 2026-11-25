@@ -4,7 +4,28 @@
 	import { i18n } from '$lib/i18n/i18n.svelte';
 	import type { MessageKey } from '$lib/i18n/messages';
 
-	let sceneMode = $state<SceneMode>('intro');
+	const sceneModes: SceneMode[] = ['intro', 'gameplay', 'npcs', 'walk'];
+
+	function isSceneMode(value: string | null): value is SceneMode {
+		return value !== null && (sceneModes as string[]).includes(value);
+	}
+
+	/** `?mode=walk` 之类的直达入口，方便开发时跳过按钮。 */
+	function readInitialMode(): SceneMode {
+		if (typeof window === 'undefined') return 'intro';
+		const value = new URL(window.location.href).searchParams.get('mode');
+		return isSceneMode(value) ? value : 'intro';
+	}
+
+	let sceneMode = $state<SceneMode>(readInitialMode());
+
+	function selectMode(next: SceneMode): void {
+		sceneMode = next;
+		if (typeof window === 'undefined') return;
+		const url = new URL(window.location.href);
+		url.searchParams.set('mode', next);
+		window.history.replaceState(null, '', url);
+	}
 
 	// Keyed by SceneMode, so adding a mode without a description stays a compile error.
 	const modeDescriptionKeys: Record<SceneMode, MessageKey> = {
@@ -32,54 +53,34 @@
 			<button
 				type="button"
 				class:active={sceneMode === 'intro'}
-				onclick={() => (sceneMode = 'intro')}
+				onclick={() => selectMode('intro')}
 			>
 				{i18n.t('mode.intro.label')}
 			</button>
 			<button
 				type="button"
 				class:active={sceneMode === 'gameplay'}
-				onclick={() => (sceneMode = 'gameplay')}
+				onclick={() => selectMode('gameplay')}
 			>
 				{i18n.t('mode.gameplay.label')}
 			</button>
 			<button
 				type="button"
 				class:active={sceneMode === 'npcs'}
-				onclick={() => (sceneMode = 'npcs')}
+				onclick={() => selectMode('npcs')}
 			>
 				{i18n.t('mode.npcs.label')}
 			</button>
 			<button
 				type="button"
 				class:active={sceneMode === 'walk'}
-				onclick={() => (sceneMode = 'walk')}
+				onclick={() => selectMode('walk')}
 			>
 				{i18n.t('mode.walk.label')}
 			</button>
 		</div>
 	</header>
 	<footer class="messenger-attribution">
-		<div class="language-toggle" role="group" aria-label={i18n.t('language.group')}>
-			<button
-				type="button"
-				lang="en"
-				class:active={i18n.locale === 'en'}
-				aria-pressed={i18n.locale === 'en'}
-				onclick={() => i18n.setLocale('en')}
-			>
-				{i18n.t('language.en')}
-			</button>
-			<button
-				type="button"
-				lang="zh"
-				class:active={i18n.locale === 'zh'}
-				aria-pressed={i18n.locale === 'zh'}
-				onclick={() => i18n.setLocale('zh')}
-			>
-				{i18n.t('language.zh')}
-			</button>
-		</div>
 		<!-- Each sentence is split into fragments around the anchors so both languages can
 		     reword freely without touching the hrefs. The boundary spaces live inside the
 		     catalog strings, so expressions and tags must stay adjacent -- no line breaks. -->
@@ -199,30 +200,4 @@
 		color: #1f2a30;
 	}
 
-	.language-toggle {
-		display: flex;
-		gap: 0.35rem;
-		margin: 0 0 0.6rem;
-	}
-
-	.language-toggle button {
-		padding: 0.25rem 0.6rem;
-		border: 1px solid #c8d2d8;
-		border-radius: 0.45rem;
-		background: #fff;
-		color: #4d5c64;
-		font-size: 0.74rem;
-		cursor: pointer;
-		transition: background 120ms ease, border-color 120ms ease;
-	}
-
-	.language-toggle button:hover {
-		border-color: #9aabb4;
-	}
-
-	.language-toggle button.active {
-		border-color: #5a6d78;
-		background: #eef3f6;
-		color: #1f2a30;
-	}
 </style>

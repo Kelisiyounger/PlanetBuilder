@@ -5,7 +5,7 @@ attribute float elementId;
 varying vec2 vUv;
 varying vec3 wNormal;
 varying vec3 wPos;
-varying vec3 vNormal;
+varying vec3 vWorldNormal;
 varying vec3 vWorldPosition;
 varying float vSurfaceId;
 flat varying int vElementId;
@@ -18,7 +18,7 @@ void main() {
 	vec4 worldPosition = modelMatrix * vec4(position, 1.0);
 	wNormal = normal;
 	wPos = position.xyz;
-	vNormal = normalize(normalMatrix * normal);
+	vWorldNormal = normalize(mat3(modelMatrix) * normal);
 	vWorldPosition = worldPosition.xyz;
 
 	gl_Position = projectionMatrix * viewMatrix * worldPosition;
@@ -36,7 +36,7 @@ uniform vec3 uLightPosition;
 varying vec2 vUv;
 varying vec3 wNormal;
 varying vec3 wPos;
-varying vec3 vNormal;
+varying vec3 vWorldNormal;
 varying vec3 vWorldPosition;
 varying float vSurfaceId;
 flat varying int vElementId;
@@ -69,7 +69,7 @@ vec4 triplanar(sampler2D tex, vec3 normal, vec3 pos, float scale) {
 
 void main() {
 	float surfaceId = vSurfaceId;
-	vec3 worldNormal = normalize(vNormal);
+	vec3 worldNormal = normalize(vWorldNormal);
 	vec4 triplanarNoise = triplanar(tNoise, wNormal, wPos * 0.07, 1.0);
 	float height = length(wPos);
 	float grassMask = 0.0;
@@ -98,12 +98,16 @@ void main() {
 
 	vec3 lightDir = normalize(uLightPosition - vWorldPosition);
 	float shade = max(dot(worldNormal, lightDir), 0.0);
-	float shadowCut = smoothstep(0.15, 0.45, shade);
+	float shadowCut = smoothstep(0.2, 0.4, shade);
 	color = mix(colorShadow, color, shadowCut);
 
 	float terrainDetail = texture2D(tNoiseTerrain, wPos.xz * 0.12).r;
 	color *= 0.92 + terrainDetail * 0.08;
 
-	gl_FragColor = vec4(color, 1.0);
+	// Negative alpha marks terrain: the outline pass then skips the per-face id
+	// term for it. The terrain's surface ids vary per vertex, so using them as
+	// face ids turned every facet into a dotted scratch. Its silhouette is
+	// still drawn by the depth term.
+	gl_FragColor = vec4(color, -1.0 - surfaceId * 0.001);
 }
 `;

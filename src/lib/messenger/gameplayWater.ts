@@ -1,5 +1,6 @@
 import { BatchedMesh, Color, RepeatWrapping, ShaderMaterial, Vector2, type Texture, Vector3 } from 'three';
 import { createBatchedMeshFromGeometries } from './batchedMesh';
+import { ensureNormals } from './geometryAttributes';
 import { gameplayGeometryPaths } from './introAssets';
 import { loadBatchedDracoGeometries } from './loadGeometry';
 import {
@@ -54,7 +55,7 @@ export async function createGameplayWaterMesh(
 ): Promise<BatchedMesh> {
 	const batches = await loadBatchedDracoGeometries(gameplayGeometryPaths.gameplayWater);
 	for (const batch of batches) {
-		batch.computeVertexNormals();
+		ensureNormals(batch);
 	}
 
 	const material = createGameplayWaterMaterial(noise, lightPosition, cameraNear, cameraFar);

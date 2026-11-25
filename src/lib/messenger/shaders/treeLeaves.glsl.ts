@@ -10,7 +10,7 @@ uniform float uScale;
 void main() {
 	vUv = uv;
 	vRand = fract(sin(dot(position.xyz, vec3(12.9898, 78.233, 45.164))) * 43758.5453);
-	vNormal = normalize(normalMatrix * normal);
+	vNormal = normalize(mat3(modelMatrix) * normal);
 
 	vec3 pos = position;
 	float sway = sin(uTime * 0.75 + pos.x * 3.0 + pos.z * 2.0) * 0.04 * vRand;
@@ -47,8 +47,12 @@ void main() {
 
 	vec3 lightDir = normalize(uLightPosition - vWorldPosition);
 	float shade = max(dot(normalize(vNormal), lightDir), 0.0);
-	color *= 0.55 + shade * 0.45;
+	color *= mix(0.5, 1.0, smoothstep(0.2, 0.4, shade));
 
-	gl_FragColor = vec4(color, leaf.a);
+	// The leaf texture alpha is only an alpha test; alpha in the colour buffer
+	// is the face id consumed by the outline pass. Using leaf.a here made every
+	// texture edge an outline id change, which is what produced the noisy
+	// scribbles over the canopy.
+	gl_FragColor = vec4(color, vRand * 0.001);
 }
 `;

@@ -1,5 +1,6 @@
 import type { BufferGeometry } from 'three';
 import { getDracoLoader } from './loadGeometry';
+import { splitBatchedGeometry } from './splitBatchedGeometry';
 
 /**
  * three's DRACOLoader resolves attributes by Draco *type*
@@ -165,4 +166,15 @@ export async function loadDracoGeometryWithRig(path: string): Promise<BufferGeom
 
 	geometry.userData = (metadata.userData ?? {}) as Record<string, unknown>;
 	return geometry;
+}
+
+/**
+ * Terrain / tree chunks are batched Draco files with `batchId`, `surfaceId`
+ * and `elementId` attributes. The stock loader drops those custom attributes,
+ * which flattens the terrain shader's grass/striation branches and leaves the
+ * outline pass with no face ids. The rig loader keeps them; splitting then
+ * yields the same per-batch meshes the reference scene uses.
+ */
+export async function loadBatchedDracoGeometriesWithRig(path: string): Promise<BufferGeometry[]> {
+	return splitBatchedGeometry(await loadDracoGeometryWithRig(path));
 }

@@ -6,7 +6,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-ROOT = Path("/home/arafays/projects/messenger-copy/reference/messenger.abeto.co")
+ROOT = Path(__file__).resolve().parents[1] / "reference" / "messenger.abeto.co"
 OUT = ROOT / "shaders"
 
 TEMPLATE = re.compile(r"`([^`]{120,20000}?)`", re.S)
